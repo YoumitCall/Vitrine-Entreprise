@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>S.I.G.M.A. — Armurerie & Logistique</title>
+
+  <!-- Favicon minimal (SVG data URI) -->
+  <link rel="icon" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="100%" height="100%" rx="12" ry="12" fill="%23123a2a"/><g transform="translate(32,32)" fill="none" stroke="%237cffc7" stroke-width="3"><circle r="18"/><path d="M-12 0 H12 M0 -12 V12"/></g></svg>'>
+
+  <!-- Fonts militaires sobres -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600&family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      /* Palette militaire technique */
+      --bg-0:#0b1411;     /* fond */
+      --bg-1:#0f1e18;     /* panneau sombre */
+      --bg-2:#132820;     /* panneau moyen */
+      --stroke:#1f3d31;   /* bordure discrète */
+      --text:#e7f5ee;     /* texte principal */
+      --muted:#a8c3b6;    /* texte secondaire */
+      --accent:#7cffc7;   /* vert scanner */
+      --accent-2:#9ae6ff; /* bleu HUD léger */
+      --glass: rgba(19, 40, 32, 0.55);
+      --blur: 14px;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --grid-gap: clamp(14px, 2vw, 22px);
+      --maxw: 1200px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background: radial-gradient(1000px 500px at 10% -10%, #132820 0%, #0b1411 60%) fixed;
+      color:var(--text);
+      font-family:"Oswald",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      letter-spacing:.2px;
+      overflow-x:hidden;
+    }
+
+    /* CANVAS 3D de fond */
+    #bg3d{
+      position:fixed; inset:0; z-index:-2;
+    }
+    /* Overlay dynamique discret */
+    .dynamic-overlay{
+      position:fixed; inset:-10vmax; z-index:-1; pointer-events:none;
+      background:
+        radial-gradient(1200px 600px at var(--mx,50%) var(--my,50%), rgba(124,255,199,0.08), transparent 60%),
+        radial-gradient(900px 500px at calc(100% - var(--mx,50%)) calc(100% - var(--my,50%)), rgba(154,230,255,0.06), transparent 60%);
+      filter: saturate(110%);
+      transition: background-position .15s linear;
+    }
+
+    /* Layout */
+    .wrap{max-width:var(--maxw); margin-inline:auto; padding: clamp(18px, 3vw, 28px);}
+    header.hero{
+      position:relative; padding: clamp(60px, 12vh, 140px) 0 clamp(40px, 8vh, 80px);
+    }
+    .badge-row{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px}
+    .badge{
+      background:linear-gradient( to bottom right, rgba(18,56,42,.65), rgba(10,22,18,.55));
+      border:1px solid var(--stroke);
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
+      color:var(--muted);
+      padding:8px 12px; border-radius:999px; font-size:.9rem; display:inline-flex; align-items:center; gap:8px
+    }
+    .pill-accent{color:#0b1411; background:linear-gradient(90deg, var(--accent), var(--accent-2)); border:none; font-weight:600}
+
+    h1{
+      font-size: clamp(40px, 7vw, 72px);
+      line-height: .95;
+      margin:0 0 12px;
+      text-transform:uppercase;
+      letter-spacing:.5px;
+    }
+    .sub{font-family:"Roboto Mono",monospace; color:var(--muted); font-size: clamp(14px, 1.9vw, 16px)}
+    .quote{
+      margin-top:18px; color:var(--accent); font-weight:400; letter-spacing:.6px;
+      font-family:"Roboto Mono",monospace;
+    }
+
+    /* Cards glassmorphism */
+    .grid{display:grid; gap:var(--grid-gap)}
+    .grid.cols-3{grid-template-columns: repeat(3, 1fr)}
+    .grid.cols-2{grid-template-columns: repeat(2, 1fr)}
+    @media (max-width: 980px){ .grid.cols-3{grid-template-columns:1fr 1fr} }
+    @media (max-width: 680px){ .grid.cols-3,.grid.cols-2{grid-template-columns:1fr} }
+
+    .card{
+      background: linear-gradient( to bottom right, var(--glass), rgba(10,20,16,0.45));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: clamp(16px, 2vw, 22px);
+      position:relative;
+      overflow:hidden;
+    }
+    .card::after{
+      content:""; position:absolute; inset:0;
+      background: radial-gradient(600px 200px at 10% -20%, rgba(124,255,199,0.08), transparent 60%);
+      pointer-events:none;
+    }
+    .card h3{margin:0 0 8px; font-size: clamp(18px,2.4vw,22px); letter-spacing:.3px}
+    .card p{margin:6px 0; color:var(--muted)}
+    .kpi{
+      display:grid; grid-template-columns:auto 1fr; gap:10px 16px; align-items:center;
+      font-family:"Roboto Mono",monospace;
+    }
+    .kpi .n{font-size: clamp(30px, 4.5vw, 40px); font-weight:600; color:var(--accent)}
+    .hr{height:1px; background:linear-gradient(90deg, transparent, var(--stroke), transparent); margin:10px 0 6px}
+
+    /* Listes thématiques */
+    .list{display:grid; gap:10px}
+    .li{
+      display:grid; grid-template-columns:28px 1fr; gap:10px; align-items:start;
+    }
+    .li svg{width:22px; height:22px; flex:0 0 22px}
+    .muted{color:var(--muted)}
+    .mono{font-family:"Roboto Mono",monospace}
+
+    /* Section titles */
+    .section-head{
+      display:flex; align-items:center; gap:10px; margin: 8px 0 6px;
+      text-transform:uppercase; letter-spacing:.4px; font-weight:600
+    }
+    .section-head svg{width:22px; height:22px}
+
+    /* Footer */
+    footer{opacity:.8; font-size:.9rem; padding:28px 0 60px}
+    a.txt{color:var(--accent); text-decoration:none; border-bottom:1px dotted rgba(124,255,199,.25)}
+    .note{font-family:"Roboto Mono",monospace; color:var(--muted); font-size:.9rem}
+    .ghost{
+      position:absolute; right:16px; top:16px; font-size:.75rem; color:var(--muted); font-family:"Roboto Mono",monospace;
+      opacity:.7
+    }
+
+    /* CTA visuels désactivés (pas de liens) */
+    .cta-disabled{
+      display:inline-flex; align-items:center; gap:8px; padding:10px 14px;
+      border-radius:12px; background:rgba(124,255,199,0.12); color:var(--accent);
+      border:1px dashed rgba(124,255,199,0.35); user-select:none; cursor:default;
+      font-family:"Roboto Mono",monospace;
+    }
+
+    /* Animations hover */
+    .card:hover{transform: translateY(-2px); transition: transform .2s ease}
+  </style>
+</head>
+<body>
+  <canvas id="bg3d" aria-hidden="true"></canvas>
+  <div class="dynamic-overlay"></div>
+
+  <header class="hero wrap">
+    <div class="badge-row">
+      <span class="badge pill-accent">S.I.G.M.A. — Armurerie & Logistique</span>
+      <span class="badge">Division d’Approvisionnement</span>
+      <span class="badge">Licence préfectorale n° RP-447A</span>
+      <span class="badge">Réseau Nord / Centre</span>
+    </div>
+
+    <h1>La précision n’est pas une option<br>c’est notre signature</h1>
+    <p class="sub">S.I.G.M.A. fournit, entretient et équipe les unités civiles et partenaires institutionnels. Catalogue contrôlé, traçabilité totale, service sur-mesure.</p>
+    <p class="quote mono">Fournisseur de la Gendarmerie Nationale — approvisionnements, équipements & maintenance dédiés.</p>
+
+    <div class="badge-row" style="margin-top:18px">
+      <span class="badge cta-disabled">
+        <!-- Heroicon: Viewfinder Circle -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M8 7H6a2 2 0 0 0-2 2v2m16 0V9a2 2 0 0 0-2-2h-2m0 10h2a2 2 0 0 0 2-2v-2M4 13v2a2 2 0 0 0 2 2h2M12 8v8m4-4H8"/><circle cx="12" cy="12" r="9" stroke-width="1.5"/></svg>
+        Accéder au catalogue (désactivé)
+      </span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- KPIs -->
+    <section class="grid cols-3">
+      <article class="card kpi" data-anim>
+        <!-- Heroicon: Clock -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="1.5"/><path d="M12 7v5l3 2" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div>
+          <div class="ghost">Délai</div>
+          <div class="n">72h</div>
+          <div class="muted">Délai standard de dotation • Express possible</div>
+        </div>
+      </article>
+      <article class="card kpi" data-anim>
+        <!-- Heroicon: Shield Check -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M12 3l7 4v5c0 5.25-3.5 8.5-7 9-3.5-.5-7-3.75-7-9V7l7-4z"/><path d="M9 12l2 2 4-4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <div class="ghost">Conformité</div>
+          <div class="n">100%</div>
+          <div class="muted">Traçabilité & conformité • Contrôles RP</div>
+        </div>
+      </article>
+      <article class="card kpi" data-anim>
+        <!-- Heroicon: Bolt -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M13 3L4 14h6l-1 7 9-11h-6l1-7z" stroke-linejoin="round"/></svg>
+        <div>
+          <div class="ghost">Astreinte</div>
+          <div class="n">24/7</div>
+          <div class="muted">Astreinte armurier senior • Urgences</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Domaines -->
+    <section style="margin-top:var(--grid-gap)">
+      <div class="section-head">
+        <!-- Heroicon: Squares 2x2 -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke-width="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke-width="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke-width="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke-width="1.5"/></svg>
+        <h2 style="margin:0">Domaines & spécialités</h2>
+      </div>
+      <div class="grid cols-3">
+        <article class="card" data-anim>
+          <h3>Gendarmerie Nationale</h3>
+          <p>Équipements, approvisionnement & maintenance</p>
+        </article>
+        <article class="card" data-anim>
+          <h3>Pêche</h3>
+          <p>Cannes, moulinets, appâts — kits prêts à l’emploi</p>
+        </article>
+        <article class="card" data-anim>
+          <h3>Armes de chasse</h3>
+          <p>Fusils, optiques, entretien — saisons & quotas</p>
+        </article>
+        <article class="card" data-anim>
+          <h3>Arme de défense</h3>
+          <p>Protection personnelle — formation & vérifications</p>
+        </article>
+        <article class="card" data-anim>
+          <h3>Tir sportif</h3>
+          <p>Cibles, calibres, réglages — banc d’essai interne</p>
+        </article>
+        <article class="card" data-anim>
+          <span class="cta-disabled">
+            <!-- Heroicon: Document Magnifying Glass -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M12 4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8l-6-4z"/><path stroke-width="1.5" d="M10.5 12.5a3.5 3.5 0 1 0 4.95 4.95"/><path stroke-width="1.5" d="M16 17l2 2" stroke-linecap="round"/></svg>
+            Consulter le catalogue (désactivé)
+          </span>
+        </article>
+      </div>
+    </section>
+
+    <!-- Engagements -->
+    <section style="margin-top:var(--grid-gap)">
+      <div class="section-head">
+        <!-- Heroicon: Check Badge -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M7 8l5-3 5 3v5a7 7 0 1 1-10 0V8z"/><path stroke-width="1.5" d="M9 13l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h2 style="margin:0">Nos engagements</h2>
+      </div>
+      <div class="grid cols-2">
+        <article class="card" data-anim>
+          <div class="list">
+            <div class="li">
+              <!-- Heroicon: Clipboard Document -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="8" y="4" width="8" height="4" rx="1.5" stroke-width="1.5"/><rect x="6" y="6" width="12" height="14" rx="2" stroke-width="1.5"/><path d="M8 11h8M8 15h5" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div>
+                <strong>Conseil neutre & traçable</strong>
+                <p>Chaque dotation est consignée (n° série, date, destinataire RP).</p>
+              </div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Scale -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v3m0 0l-7 4h14l-7-4zM5 10v1a7 7 0 0 0 14 0v-1M12 17v4" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div>
+                <strong>Conformité stricte</strong>
+                <p>Respect des licences, âges et autorisations roleplay en vigueur.</p>
+              </div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Wrench -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a4 4 0 1 0-5.66 5.66L3 18l3 3 6.04-6.04a4 4 0 0 0 2.66-8.66z" stroke-width="1.5"/></svg>
+              <div>
+                <strong>Maintenance à vie</strong>
+                <p>Réglages, nettoyage, diagnostics — priorité aux unités partenaires.</p>
+              </div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Eye Slash -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3l18 18" stroke-width="1.5" stroke-linecap="round"/><path d="M10.58 10.58A3 3 0 0 0 12 15a3 3 0 0 0 2.42-4.42M2 12s3.5-7 10-7 10 7 10 7-1.36 2.72-3.86 4.62" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div>
+                <strong>Discrétion</strong>
+                <p>Identité des clients protégée selon protocole S.I.G.M.A.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="card" data-anim>
+          <h3>Procédure d’achat RP</h3>
+          <div class="hr"></div>
+          <div class="list">
+            <div class="li">
+              <!-- Heroicon: Cursor Arrow Rays -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 4l2 7 7 2-7 2-2 7-2-7-7-2 7-2 2-7z" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              <div><strong>1) Signalement</strong><p>Prise de contact via le catalogue (fiche arme) ou au comptoir S.I.G.M.A.</p></div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Identification -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2" stroke-width="1.5"/><path d="M7 9h5M7 13h8" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div><strong>2) Vérifications</strong><p>Licence/âge/justificatifs — contrôle préfectoral si requis.</p></div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Adjustments Horizontal -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h10m4 0h4M7 7v10m-4 0h10m4 0h4M17 3v18" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div><strong>3) Conseil & devis</strong><p>Pack adapté au besoin RP (chasse, défense, sport).</p></div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Lock Closed -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="11" width="16" height="9" rx="2" stroke-width="1.5"/><path d="M8 11V8a4 4 0 1 1 8 0v3" stroke-width="1.5"/></svg>
+              <div><strong>4) Délivrance</strong><p>Remise sécurisée, essai encadré, enregistrement de série.</p></div>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Lifebuoy -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="1.5"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6M7.8 7.8l4.4 4.4M11.2 7.8l4.4 4.4" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <div><strong>5) Suivi</strong><p>Contrôle périodique, SAV prioritaire, rappels de maintenance.</p></div>
+            </div>
+          </div>
+          <p class="note" style="margin-top:10px">Rappel RP : la revente sauvage, le prêt non déclaré ou la perte d’arme entraînent des sanctions roleplay (saisie, suspension de licence, amende).</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Partenariats / Licences / Témoignages -->
+    <section style="margin-top:var(--grid-gap)">
+      <div class="grid cols-3">
+        <article class="card" data-anim>
+          <div class="section-head">
+            <!-- Heroicon: Building Office -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" stroke-width="1.5"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2M7 21v-3a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3" stroke-width="1.5"/></svg>
+            <h2 style="margin:0">Partenariats & Licences</h2>
+          </div>
+          <ul class="list muted" style="margin:0">
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 7h12v10H6z" stroke-width="1.5"/><path d="M8 9h8M8 13h8" stroke-width="1.5" stroke-linecap="round"/></svg> <span>Préfecture — Lettre d’agrément</span></li>
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20l8-16 8 16H4z" stroke-width="1.5"/></svg> <span>Stand de tir — Convention d’accès</span></li>
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 16c3-5 13-5 16 0" stroke-width="1.5" /><circle cx="12" cy="8" r="3" stroke-width="1.5"/></svg> <span>Réseau Chasse — Validation saisonnière</span></li>
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="1.5"/><path d="M8 12h8M12 8v8" stroke-width="1.5" stroke-linecap="round"/></svg> <span>Clubs sportifs — Encadrement</span></li>
+          </ul>
+        </article>
+
+        <article class="card" data-anim>
+          <div class="section-head">
+            <!-- Heroicon: Chat Bubble Left Right -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 8h10a3 3 0 0 1 3 3v6l-3-2H7a3 3 0 0 1-3-3v-1a3 3 0 0 1 3-3z" stroke-width="1.5"/></svg>
+            <h2 style="margin:0">Témoignages</h2>
+          </div>
+          <div class="list">
+            <div class="li">
+              <!-- Heroicon: Sparkles -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5z" stroke-width="1.5"/></svg>
+              <p>« Réglage optique parfait, zéro au premier tir. » — <strong>C. Moreau</strong>, chasseur</p>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Document Check -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="1.5"/><path d="M8 12l2 2 4-4" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <p>« Dossier traité en 24h, protocole carré. » — <strong>A. R.</strong>, inspecteur</p>
+            </div>
+            <div class="li">
+              <!-- Heroicon: Trophy -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 4h10v3a4 4 0 0 0 4 4h0a6 6 0 0 1-6 6H9a6 6 0 0 1-6-6h0a4 4 0 0 0 4-4V4z" stroke-width="1.5"/><path d="M9 21h6" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <p>« SAV nickel, conseils honnêtes. » — <strong>J. “Kite”</strong>, tireur sportif</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="card" data-anim>
+          <div class="section-head">
+            <!-- Heroicon: Users -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0z" stroke-width="1.5"/><path d="M3 20a7 7 0 0 1 18 0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <h2 style="margin:0">Ressources Humaines</h2>
+          </div>
+          <ul class="list muted" style="margin:0">
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 20V6a2 2 0 0 1 2-2h4l6 6v10" stroke-width="1.5"/><path d="M12 4v6h6" stroke-width="1.5"/></svg> <span><strong>Directeur des Opérations</strong> — Direction, contrats, conformité.</span></li>
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M4 12h10M4 17h16" stroke-width="1.5" stroke-linecap="round"/></svg> <span><strong>Adjoint(e) de direction</strong> — Exploitation, stocks, formation.</span></li>
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 7h10v10H7z" stroke-width="1.5"/><path d="M9 12h6M12 9v6" stroke-width="1.5" stroke-linecap="round"/></svg> <span><strong>Armurier</strong> — Réception, diagnostics, réglages.</span></li>
+            <li class="li"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h13l5 5" stroke-width="1.5" stroke-linecap="round"/></svg> <span><strong>Logisticien</strong> — Inventaires, traçabilité, livraisons.</span></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <footer class="wrap">
+      <p class="note">Note HRP : cette page est rédigée à 100% en RP et sert de cadre narratif. Les mécaniques (achats, droits) restent soumises aux règles du serveur et aux décisions du staff.</p>
+    </footer>
+  </main>
+
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <!-- THREE.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+  <script>
+    // Effet overlay réactif à la souris
+    (function(){
+      const root = document.documentElement;
+      const ov = document.querySelector('.dynamic-overlay');
+      const set = (x,y)=>{ root.style.setProperty('--mx', x+'%'); root.style.setProperty('--my', y+'%'); };
+      window.addEventListener('mousemove', e=>{
+        const x = (e.clientX / window.innerWidth) * 100;
+        const y = (e.clientY / window.innerHeight) * 100;
+        set(x,y);
+      });
+      window.addEventListener('touchmove', e=>{
+        const t = e.touches[0]; if(!t) return;
+        const x = (t.clientX / window.innerWidth) * 100;
+        const y = (t.clientY / window.innerHeight) * 100;
+        set(x,y);
+      }, {passive:true});
+    })();
+
+    // Scène 3D subtile: plan wireframe animé type "radar"
+    (function(){
+      const canvas = document.getElementById('bg3d');
+      const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x0b1411, 8, 22);
+      const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+      camera.position.set(0.6, 1.2, 2.2);
+
+      const resize = ()=>{
+        const w = window.innerWidth, h = window.innerHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h; camera.updateProjectionMatrix();
+      };
+      window.addEventListener('resize', resize); resize();
+
+      // Grille wireframe
+      const geo = new THREE.PlaneGeometry(14, 14, 40, 40);
+      const mat = new THREE.MeshBasicMaterial({color:0x2bdca0, wireframe:true, transparent:true, opacity:0.14});
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI/2.2;
+      mesh.position.y = -0.6;
+      scene.add(mesh);
+
+      // Halo circulaire
+      const ringGeo = new THREE.RingGeometry(1.6, 1.7, 64);
+      const ringMat = new THREE.MeshBasicMaterial({color:0x9ae6ff, transparent:true, opacity:0.13});
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI/2.2;
+      ring.position.y = -0.58;
+      scene.add(ring);
+
+      // Animation ondulation légère
+      const clock = new THREE.Clock();
+      function animate(){
+        const t = clock.getElapsedTime();
+        for(let i=0;i<geo.attributes.position.count;i++){
+          const y = geo.attributes.position.getY(i);
+          const x = geo.attributes.position.getX(i);
+          const z = Math.sin((x*0.8 + t)*0.8) * 0.04 + Math.cos((y*0.8 + t)*0.6) * 0.03;
+          geo.attributes.position.setZ(i, z);
+        }
+        geo.attributes.position.needsUpdate = true;
+        ring.scale.setScalar(1 + Math.sin(t*0.8)*0.02);
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      // Inclinaison caméra selon la souris
+      const target = {x:0, y:0};
+      window.addEventListener('mousemove', e=>{
+        target.x = (e.clientX / window.innerWidth - 0.5) * 0.45;
+        target.y = (e.clientY / window.innerHeight - 0.5) * 0.25;
+      });
+      function tilt(){
+        camera.position.x += (target.x - camera.position.x) * 0.05;
+        camera.position.y = 1.2 + target.y;
+        camera.lookAt(0,0,0);
+        requestAnimationFrame(tilt);
+      }
+      tilt();
+    })();
+
+    // Apparitions fluides des cartes
+    (function(){
+      gsap.registerPlugin(ScrollTrigger);
+      gsap.utils.toArray('[data-anim]').forEach((el, i)=>{
+        gsap.fromTo(el,
+          {y:20, opacity:0, filter:'blur(6px)'},
+          {y:0, opacity:1, filter:'blur(0px)', duration:.6, ease:'power2.out', delay: i*0.03,
+            scrollTrigger:{ trigger: el, start: 'top 85%' }
+          }
+        );
+      });
+    })();
+  </script>
+</body>
+</html>
